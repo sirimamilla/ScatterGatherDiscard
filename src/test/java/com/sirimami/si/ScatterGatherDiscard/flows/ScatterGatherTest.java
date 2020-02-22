@@ -57,7 +57,7 @@ public class ScatterGatherTest {
                     .recipientFlow(IntegrationFlowDefinition::bridge),
                     g -> g.groupTimeout(50)
                             .discardChannel("scatterDiscardFlow.input"),
-                    sg->sg.gatherTimeout(50));
+                    sg->sg.gatherTimeout(500));
         }
         @Bean
         public IntegrationFlow innerFlow(){
@@ -72,14 +72,20 @@ public class ScatterGatherTest {
 
         @Bean
         IntegrationFlow scatterDiscardFlow() {
-            return f->f.transform(this, "processDiscardMessage");
+            return f->f.handle(this, "processDiscardMessage");
         }
 
-        public Message<?> processDiscardMessage(Message<?> msg) {
-            return MessageBuilder.withPayload(Optional.of(new RuntimeException("DiscardMessage")))
-                    .copyHeaders(msg.getHeaders())
-                    .popSequenceDetails()
-                    .build();
+        public void processDiscardMessage(Message<?> msg) {
+            MessageChannel channel= (MessageChannel) msg.getHeaders().get("gatherResultChannel");
+            try {
+                channel.send(MessageBuilder.withPayload(Optional.of(new RuntimeException("DiscardMessage")))
+                        .copyHeaders(msg.getHeaders())
+                        .popSequenceDetails()
+                        .build());
+
+            } catch (RuntimeException e){
+
+            }
         }
     }
 }
